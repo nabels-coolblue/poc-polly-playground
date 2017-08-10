@@ -1,8 +1,11 @@
-﻿using RestSharp;
+﻿using Polly;
+using RestSharp;
 using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -18,12 +21,16 @@ namespace Consumer.DataAccess
         ILogger _logger => Log.Logger;
 
         IRestClient _restClient => new RestClient("http://localhost:60539");
-
+        
         public string EndpointWithTransientFaults()
-        {   
-            var request = new RestRequest("api/faults/transient", Method.GET);
+        {
+            const string EndpointWithTransientFaultsRoute = "api/faults/transient";
 
-            IRestResponse response = _restClient.Execute(request);
+            var request = new RestRequest(EndpointWithTransientFaultsRoute, Method.GET);
+
+            var retryPolicy = Policy.HandleResult<IRestResponse>(r => r.StatusCode == HttpStatusCode.InternalServerError).Retry(3,
+                (_response, _attemptNo) => _logger.Warning($"Previous attempt failed, trying again (attempt no #{_attemptNo}"));
+            IRestResponse response = retryPolicy.Execute(() => _restClient.Execute(request));
 
             LogRequest(request, response);
 
