@@ -1,4 +1,5 @@
 ﻿using Consumer.DataAccess;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,10 +10,15 @@ namespace Consumer
 {
     public class PlaygroundCoordinator
     {
+        private ILogger _logger => Log.Logger;
+
         public void HaveSomeFun()
         {
             IWebApiRepository repository = new WebApiRepository();
-            repository.GetValueWithPossibilityOfTransientFaults();
+            for (int i = 0; i < 10; i++)
+            {
+                var response = repository.EndpointWithTransientFaults();
+            }
         }
     }
 }

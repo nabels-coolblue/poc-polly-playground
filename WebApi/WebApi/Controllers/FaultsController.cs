@@ -13,9 +13,17 @@ namespace WebApi.Controllers
         [Route("transient")]
         public string Transient()
         {
-            return "";
-
+            var random = new Random().Next(0, 2);
+            bool iShouldCompleteSuccessfully = random == 1;
             
+            if (iShouldCompleteSuccessfully)
+            {
+                return "success";
+            }
+            else
+            {
+                throw new Exception();
+            }
         }
 
         [HttpGet("{id}")]
