@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Consumer.DataAccess;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -10,6 +11,9 @@ namespace Consumer
     {
         static void Main(string[] args)
         {
+            IWebApiRepository repository = new WebApiRepository();
+            repository.GetPrices();
+
         }
     }
 }
