@@ -7,25 +7,23 @@ using System.Threading.Tasks;
 
 namespace Consumer.DataAccess
 {
-
     public interface IWebApiRepository
     {
-        IEnumerable<string> GetPrices();
+        string GetValueWithPossibilityOfTransientFaults();
     }
 
     public class WebApiRepository : IWebApiRepository
     {
-        public IEnumerable<string> GetPrices()
+        public string GetValueWithPossibilityOfTransientFaults()
         {
             var client = new RestClient("http://localhost:60539");
-            var request = new RestRequest("api/prices", Method.GET);
+            var request = new RestRequest("api/faults/transient", Method.GET);
 
-            IRestResponse<List<string>> response = client.Execute<List<string>>(request);
+            IRestResponse response = client.Execute(request);
 
-            Console.WriteLine(response.ToString());
-            Console.WriteLine(response.Data.ToString());
+            Console.WriteLine(response.Content);
 
-            return response.Data;
+            return response.Content;
         }
     }
 }

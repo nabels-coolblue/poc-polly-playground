@@ -11,9 +11,8 @@ namespace Consumer
     {
         static void Main(string[] args)
         {
-            IWebApiRepository repository = new WebApiRepository();
-            repository.GetPrices();
-
+            var coordinator = new PlaygroundCoordinator();
+            coordinator.HaveSomeFun();
         }
     }
 }

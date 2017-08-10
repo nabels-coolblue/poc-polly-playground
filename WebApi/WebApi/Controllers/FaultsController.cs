@@ -7,12 +7,15 @@ using Microsoft.AspNetCore.Mvc;
 namespace WebApi.Controllers
 {
     [Route("api/[controller]")]
-    public class PricesController : Controller
+    public class FaultsController : Controller
     {
         [HttpGet]
-        public IEnumerable<string> Get()
+        [Route("transient")]
+        public string Transient()
         {
-            return new string[] { "value1", "value2" };
+            return "";
+
+            
         }
 
         [HttpGet("{id}")]
