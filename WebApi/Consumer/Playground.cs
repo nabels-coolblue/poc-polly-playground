@@ -15,14 +15,23 @@ namespace Consumer
         public void HaveSomeFun()
         {
             IResiliencePatternRepository repository = new ResiliencePatternRepository();
+
+            _logger.Information(nameof(repository.GetDataUsingRetryPattern));
             for (int i = 0; i < 10; i++)
             {
                 repository.GetDataUsingRetryPattern();
             }
 
+            _logger.Information(nameof(repository.GetDataUsingRetryPatternWithSpecifiedTimeouts));
             for (int i = 0; i < 10; i++)
             {
                 repository.GetDataUsingRetryPatternWithSpecifiedTimeouts();
+            }
+
+            _logger.Information(nameof(repository.GetDataUsingCircuitBreakerPattern));
+            for (int i = 0; i < 10; i++)
+            {
+                repository.GetDataUsingCircuitBreakerPattern();
             }
         }
     }

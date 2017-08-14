@@ -1,4 +1,6 @@
 ﻿using Polly;
+using Polly.CircuitBreaker;
+using Polly.Retry;
 using RestSharp;
 using Serilog;
 using System;
@@ -16,7 +18,9 @@ namespace Consumer.DataAccess
         string GetDataUsingRetryPattern();
 
         string GetDataUsingRetryPatternWithSpecifiedTimeouts();
-        
+
+        string GetDataUsingCircuitBreakerPattern();
+
     }
 
     public class ResiliencePatternRepository : IResiliencePatternRepository
@@ -25,84 +29,95 @@ namespace Consumer.DataAccess
 
         IRestClient _restClient => new RestClient("http://localhost:60540");
 
-        const string EndpointWithTransientFaultsRoute = "api/faults/transient";
+        const string _endpointWithTransientFaultsRoute = "api/faults/transient";
 
-        /// <summary>
-        /// Gets some information using the Retry resilience pattern. 
-        /// 
-        /// Upon encountering an Internal Server Error (500), the repository method will use a maximum a 3 retries. 
-        /// </summary>
-        /// <returns></returns>
-        public string GetDataUsingRetryPattern()
+        private int _circuitBreaker_NoAttempts = 3;
+
+        private int _circuitBreaker_SecondsOfTimeoutAfterTriggering = 3;
+
+        private CircuitBreakerPolicy<IRestResponse> _circuitBreakerPolicy;
+
+        private RetryPolicy<IRestResponse> _retryPolicy;
+
+        private RetryPolicy<IRestResponse> _retryWithTimeoutPolicy;
+
+        public ResiliencePatternRepository()
         {
-            var request = new RestRequest(EndpointWithTransientFaultsRoute, Method.GET);
+            _circuitBreakerPolicy =
+                Policy.HandleResult<IRestResponse>(r => r.StatusCode == HttpStatusCode.InternalServerError)
+                .CircuitBreaker(_circuitBreaker_NoAttempts, TimeSpan.FromSeconds(_circuitBreaker_SecondsOfTimeoutAfterTriggering), (_response, timespan) => _logger.Warning($"Circuit breaker triggered because of too many ({_circuitBreaker_SecondsOfTimeoutAfterTriggering}) failures. Will open after {timespan}"), () => _logger.Warning("Circuit is closed again."));
 
-            var retryPolicy = Policy.HandleResult<IRestResponse>(r => r.StatusCode == HttpStatusCode.InternalServerError).Retry(3,
+            _retryPolicy = Policy.HandleResult<IRestResponse>(r => r.StatusCode == HttpStatusCode.InternalServerError).Retry(3,
                 (_response, _attemptNo) => _logger.Warning($"Previous attempt failed, trying again (attempt no #{_attemptNo}"));
-            IRestResponse response = retryPolicy.Execute(() => _restClient.Execute(request));
 
-            LogRequest(request, response);
-
-            return response.ToString();
-        }
-
-        public string GetDataUsingRetryPatternWithSpecifiedTimeouts()
-        {
-            var request = new RestRequest(EndpointWithTransientFaultsRoute, Method.GET);
-
-            var retryWithTimeoutPolicy = Policy
+            _retryWithTimeoutPolicy = Policy
               .HandleResult<IRestResponse>(r => r.StatusCode == HttpStatusCode.InternalServerError)
               .WaitAndRetry(new[]
               {
-                TimeSpan.FromSeconds(1),
-                TimeSpan.FromSeconds(2),
-                TimeSpan.FromSeconds(3)
+                            TimeSpan.FromSeconds(1),
+                            TimeSpan.FromSeconds(2),
+                            TimeSpan.FromSeconds(3)
               }, (exception, timeSpan, _attemptNo, context) =>
               {
                   _logger.Warning($"Previous attempt failed, trying again (attempt no #{_attemptNo} in {timeSpan}");
               });
 
+        }
+        
+        /// <summary>
+        /// Gets some information using the Retry resilience pattern. 
+        /// 
+        /// Upon encountering an Internal Server Error (500), the repository method will use a maximum a 3 retries. 
+        /// </summary>
+        public string GetDataUsingRetryPattern()
+        {
+            var request = new RestRequest(_endpointWithTransientFaultsRoute, Method.GET);
 
-            IRestResponse response = retryWithTimeoutPolicy.Execute(() => _restClient.Execute(request));
+            IRestResponse response = _retryPolicy.Execute(() => _restClient.Execute(request));
 
-            LogRequest(request, response);
+            _logger.Information(response.StatusDescription);
 
             return response.ToString();
         }
 
-
-
-        // https://stackoverflow.com/questions/15683858/restsharp-print-raw-request-and-response-headers
-        private void LogRequest(IRestRequest request, IRestResponse response)
+        /// <summary>
+        /// Gets some information using the Retry resilience pattern. 
+        /// 
+        /// Upon encountering an Internal Server Error (500), the repository method will perform 
+        /// a maximum of 3 retries and will wait respectively 1, 2 and 3 seconds between the attempts. 
+        /// </summary>
+        public string GetDataUsingRetryPatternWithSpecifiedTimeouts()
         {
-            var requestToLog = new
-            {
-                resource = request.Resource,
-                // Parameters are custom anonymous objects in order to have the parameter type as a nice string
-                // otherwise it will just show the enum value
-                parameters = request.Parameters.Select(parameter => new
-                {
-                    name = parameter.Name,
-                    value = parameter.Value,
-                    type = parameter.Type.ToString()
-                }),
-                // ToString() here to have the method as a nice string otherwise it will just show the enum value
-                method = request.Method.ToString(),
-                // This will generate the actual Uri used in the request
-                uri = _restClient.BuildUri(request),
-            };
+            var request = new RestRequest(_endpointWithTransientFaultsRoute, Method.GET);
 
-            var responseToLog = new
-            {
-                statusCode = response.StatusCode,
-                content = response.Content,
-                headers = response.Headers,
-                // The Uri that actually responded (could be different from the requestUri if a redirection occurred)
-                responseUri = response.ResponseUri,
-                errorMessage = response.ErrorMessage,
-            };
+                        IRestResponse response = _retryWithTimeoutPolicy.Execute(() => _restClient.Execute(request));
 
-            _logger.Information($"Request completed. Request: {requestToLog}, Response: {responseToLog}");
+            _logger.Information(response.StatusDescription);
+
+            return response.ToString();
+        }
+
+        /// <summary>
+        /// Gets some information using the Circuit Breaker resilience pattern. 
+        /// 
+        /// Upon encountering an Internal Server Error (500) the Circuit Breaker will short-circuit any calls
+        /// to this method for a period of three seconds.
+        /// </summary>
+        public string GetDataUsingCircuitBreakerPattern()
+        {                        
+            var request = new RestRequest(_endpointWithTransientFaultsRoute, Method.GET);
+
+            try
+            {
+                IRestResponse response = _circuitBreakerPolicy.Execute(() => _restClient.Execute(request));
+                _logger.Information(response.StatusDescription);
+            }
+            catch (BrokenCircuitException ex)
+            {
+                _logger.Information("OUT OF ORDER: Circuit breaker is currently tripped. Sorry.");
+            }
+
+            return "Service unavailable";
         }
     }
 }
