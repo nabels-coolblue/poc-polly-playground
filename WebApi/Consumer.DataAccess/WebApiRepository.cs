@@ -11,21 +11,30 @@ using System.Threading.Tasks;
 
 namespace Consumer.DataAccess
 {
-    public interface IWebApiRepository
+    public interface IResiliencePatternRepository
     {
-        string EndpointWithTransientFaults();
+        string GetDataUsingRetryPattern();
+
+        string GetDataUsingRetryPatternWithSpecifiedTimeouts();
+        
     }
 
-    public class WebApiRepository : IWebApiRepository
+    public class ResiliencePatternRepository : IResiliencePatternRepository
     {
         ILogger _logger => Log.Logger;
 
-        IRestClient _restClient => new RestClient("http://localhost:60539");
-        
-        public string EndpointWithTransientFaults()
-        {
-            const string EndpointWithTransientFaultsRoute = "api/faults/transient";
+        IRestClient _restClient => new RestClient("http://localhost:60540");
 
+        const string EndpointWithTransientFaultsRoute = "api/faults/transient";
+
+        /// <summary>
+        /// Gets some information using the Retry resilience pattern. 
+        /// 
+        /// Upon encountering an Internal Server Error (500), the repository method will use a maximum a 3 retries. 
+        /// </summary>
+        /// <returns></returns>
+        public string GetDataUsingRetryPattern()
+        {
             var request = new RestRequest(EndpointWithTransientFaultsRoute, Method.GET);
 
             var retryPolicy = Policy.HandleResult<IRestResponse>(r => r.StatusCode == HttpStatusCode.InternalServerError).Retry(3,
@@ -36,6 +45,32 @@ namespace Consumer.DataAccess
 
             return response.ToString();
         }
+
+        public string GetDataUsingRetryPatternWithSpecifiedTimeouts()
+        {
+            var request = new RestRequest(EndpointWithTransientFaultsRoute, Method.GET);
+
+            var retryWithTimeoutPolicy = Policy
+              .HandleResult<IRestResponse>(r => r.StatusCode == HttpStatusCode.InternalServerError)
+              .WaitAndRetry(new[]
+              {
+                TimeSpan.FromSeconds(1),
+                TimeSpan.FromSeconds(2),
+                TimeSpan.FromSeconds(3)
+              }, (exception, timeSpan, _attemptNo, context) =>
+              {
+                  _logger.Warning($"Previous attempt failed, trying again (attempt no #{_attemptNo} in {timeSpan}");
+              });
+
+
+            IRestResponse response = retryWithTimeoutPolicy.Execute(() => _restClient.Execute(request));
+
+            LogRequest(request, response);
+
+            return response.ToString();
+        }
+
+
 
         // https://stackoverflow.com/questions/15683858/restsharp-print-raw-request-and-response-headers
         private void LogRequest(IRestRequest request, IRestResponse response)

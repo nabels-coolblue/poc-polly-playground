@@ -14,10 +14,15 @@ namespace Consumer
 
         public void HaveSomeFun()
         {
-            IWebApiRepository repository = new WebApiRepository();
+            IResiliencePatternRepository repository = new ResiliencePatternRepository();
             for (int i = 0; i < 10; i++)
             {
-                var response = repository.EndpointWithTransientFaults();
+                repository.GetDataUsingRetryPattern();
+            }
+
+            for (int i = 0; i < 10; i++)
+            {
+                repository.GetDataUsingRetryPatternWithSpecifiedTimeouts();
             }
         }
     }
