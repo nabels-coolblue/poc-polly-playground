@@ -1,4 +1,5 @@
-﻿using Polly;
+﻿using Coolblue.Utilities.RestSharp;
+using Polly;
 using Polly.CircuitBreaker;
 using Polly.Retry;
 using RestSharp;
@@ -25,11 +26,9 @@ namespace Consumer.DataAccess
 
     }
     
-    public class ResiliencePatternRepository : IResiliencePatternRepository
+    public class ResiliencePatternRepository : WebserviceClient, IResiliencePatternRepository
     {
         ILogger _logger => Log.Logger;
-
-        IRestClient _restClient => new RestClient("http://localhost:60540");
 
         const string _endpointWithTransientFaultsRoute = "api/faults/transient";
 
@@ -44,6 +43,8 @@ namespace Consumer.DataAccess
         private RetryPolicy<IRestResponse> _retryWithTimeoutPolicy;
 
         private Policy<IRestResponse> _resiliencePolicy;
+
+        private IWebServiceClient _webserviceClient;
 
         public ResiliencePatternRepository()
         {
@@ -66,6 +67,8 @@ namespace Consumer.DataAccess
                   _logger.Warning($"Previous attempt failed, trying again (attempt no #{_attemptNo} in {timeSpan}");
               });
 
+            
+
             _resiliencePolicy = Policy.Wrap(_retryWithTimeoutPolicy, _circuitBreakerPolicy);
         }
         
@@ -76,10 +79,13 @@ namespace Consumer.DataAccess
         /// </summary>
         public string GetDataUsingRetryPattern()
         {
-            var request = new RestRequest(_endpointWithTransientFaultsRoute, Method.GET);
-
-            IRestResponse response = _retryPolicy.Execute(() => _restClient.Execute(request));
-
+            var request = 
+                new RestClientWrapper("http://localhost:60540")
+                .SetResource(_endpointWithTransientFaultsRoute)
+                .SetMethod(Method.GET);
+            
+            IRestResponse response = ExecuteWithRetryPolicy(() => request.Execute());
+            
             _logger.Information(response.StatusDescription);
 
             return response.ToString();
@@ -93,9 +99,12 @@ namespace Consumer.DataAccess
         /// </summary>
         public string GetDataUsingRetryPatternWithSpecifiedTimeouts()
         {
-            var request = new RestRequest(_endpointWithTransientFaultsRoute, Method.GET);
-
-                        IRestResponse response = _retryWithTimeoutPolicy.Execute(() => _restClient.Execute(request));
+            var request =
+                new RestClientWrapper("http://localhost:60540")
+                .SetResource(_endpointWithTransientFaultsRoute)
+                .SetMethod(Method.GET);
+            
+            IRestResponse response = _retryWithTimeoutPolicy.Execute(() => request.Execute());
 
             _logger.Information(response.StatusDescription);
 
@@ -110,11 +119,14 @@ namespace Consumer.DataAccess
         /// </summary>
         public string GetDataUsingCircuitBreakerPattern()
         {
-            var request = new RestRequest(_endpointWithTransientFaultsRoute, Method.GET);
-
+            var request =
+                new RestClientWrapper("http://localhost:60540")
+                .SetResource(_endpointWithTransientFaultsRoute)
+                .SetMethod(Method.GET);
+            
             try
             {
-                IRestResponse response = _circuitBreakerPolicy.Execute(() => _restClient.Execute(request));
+                IRestResponse response = _circuitBreakerPolicy.Execute(() => request.Execute());
                 _logger.Information(response.StatusDescription);
             }
             catch (BrokenCircuitException ex)
@@ -130,11 +142,14 @@ namespace Consumer.DataAccess
         /// </summary>
         public string GetDataUsingRetryAndCircuitBreakerPattern()
         {
-            var request = new RestRequest(_endpointWithTransientFaultsRoute, Method.GET);
+            var request =
+                new RestClientWrapper("http://localhost:60540")
+                .SetResource(_endpointWithTransientFaultsRoute)
+                .SetMethod(Method.GET);
 
             try
             {
-                IRestResponse response = _resiliencePolicy.Execute(() => _restClient.Execute(request));
+                IRestResponse response = _resiliencePolicy.Execute(() => request.Execute());
                 _logger.Information(response.StatusDescription);
             }
             catch (BrokenCircuitException ex)
