@@ -21,8 +21,10 @@ namespace Consumer.DataAccess
 
         string GetDataUsingCircuitBreakerPattern();
 
-    }
+        string GetDataUsingRetryAndCircuitBreakerPattern();
 
+    }
+    
     public class ResiliencePatternRepository : IResiliencePatternRepository
     {
         ILogger _logger => Log.Logger;
@@ -33,13 +35,15 @@ namespace Consumer.DataAccess
 
         private int _circuitBreaker_NoAttempts = 3;
 
-        private int _circuitBreaker_SecondsOfTimeoutAfterTriggering = 3;
+        private int _circuitBreaker_SecondsOfTimeoutAfterTriggering = 1;
 
         private CircuitBreakerPolicy<IRestResponse> _circuitBreakerPolicy;
 
         private RetryPolicy<IRestResponse> _retryPolicy;
 
         private RetryPolicy<IRestResponse> _retryWithTimeoutPolicy;
+
+        private Policy<IRestResponse> _resiliencePolicy;
 
         public ResiliencePatternRepository()
         {
@@ -62,6 +66,7 @@ namespace Consumer.DataAccess
                   _logger.Warning($"Previous attempt failed, trying again (attempt no #{_attemptNo} in {timeSpan}");
               });
 
+            _resiliencePolicy = Policy.Wrap(_retryWithTimeoutPolicy, _circuitBreakerPolicy);
         }
         
         /// <summary>
@@ -104,12 +109,32 @@ namespace Consumer.DataAccess
         /// to this method for a period of three seconds.
         /// </summary>
         public string GetDataUsingCircuitBreakerPattern()
-        {                        
+        {
             var request = new RestRequest(_endpointWithTransientFaultsRoute, Method.GET);
 
             try
             {
                 IRestResponse response = _circuitBreakerPolicy.Execute(() => _restClient.Execute(request));
+                _logger.Information(response.StatusDescription);
+            }
+            catch (BrokenCircuitException ex)
+            {
+                _logger.Information("OUT OF ORDER: Circuit breaker is currently tripped. Sorry.");
+            }
+
+            return "Service unavailable";
+        }
+
+        /// <summary>
+        /// Gets some information using both the Circuit Breaker and Retry resilience pattern. 
+        /// </summary>
+        public string GetDataUsingRetryAndCircuitBreakerPattern()
+        {
+            var request = new RestRequest(_endpointWithTransientFaultsRoute, Method.GET);
+
+            try
+            {
+                IRestResponse response = _resiliencePolicy.Execute(() => _restClient.Execute(request));
                 _logger.Information(response.StatusDescription);
             }
             catch (BrokenCircuitException ex)
