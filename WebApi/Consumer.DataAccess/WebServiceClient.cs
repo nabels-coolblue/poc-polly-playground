@@ -16,38 +16,27 @@ namespace Consumer.DataAccess
         IRestResponse ExecuteWithRetryPolicy(Func<IRestResponse> execute);
     }
 
-    public class ResiliencePolicyManager
-    {
-        ILogger _logger => Log.Logger;
-
-        private Policy<IRestResponse> _retryPolicy;
-
-        public Policy<IRestResponse> ResiliencePolicy { get; }
-
-        public ResiliencePolicyManager()
-        {
-            _retryPolicy = Policy.HandleResult<IRestResponse>(r => r.StatusCode == HttpStatusCode.InternalServerError).Retry(3,
-            (_response, _attemptNo) => _logger.Warning($"Previous attempt failed, trying again (attempt no #{_attemptNo}")).WithPolicyKey("");
-        }
-
-    }
-
-
     public class WebserviceClient : IWebServiceClient
     {
         ILogger _logger => Log.Logger;
+        
+        private readonly IResiliencePolicyManager _resiliencePolicyManager;
 
-        Policy<IRestResponse> _retryPolicy;
-
-        public WebserviceClient()
+        public WebserviceClient(IResiliencePolicyManager resiliencePolicyManager)
         {
-            _retryPolicy = Policy.HandleResult<IRestResponse>(r => r.StatusCode == HttpStatusCode.InternalServerError).Retry(3,
-            (_response, _attemptNo) => _logger.Warning($"Previous attempt failed, trying again (attempt no #{_attemptNo}")).WithPolicyKey("");
+            _resiliencePolicyManager = resiliencePolicyManager;
         }
 
         public IRestResponse ExecuteWithRetryPolicy(Func<IRestResponse> func)
         {
-            return _retryPolicy.Execute(func);
+            return _resiliencePolicyManager.ResiliencePolicy.Execute(func);
         }
+
+        public IRestResponse ExecuteWithCircuitBreakerPolicy(Func<IRestResponse> func)
+        {
+            return _resiliencePolicyManager.CircuitBreakerPolicy.Execute(func);
+        }
+
+
     }
 }

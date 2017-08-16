@@ -55,6 +55,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ResiliencePolicyManager.cs" />
     <Compile Include="WebApiRepository.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="WebServiceClient.cs" />

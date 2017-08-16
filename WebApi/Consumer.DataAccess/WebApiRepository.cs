@@ -32,26 +32,14 @@ namespace Consumer.DataAccess
 
         const string _endpointWithTransientFaultsRoute = "api/faults/transient";
 
-        private int _circuitBreaker_NoAttempts = 3;
-
-        private int _circuitBreaker_SecondsOfTimeoutAfterTriggering = 1;
-
-        private CircuitBreakerPolicy<IRestResponse> _circuitBreakerPolicy;
-
         private RetryPolicy<IRestResponse> _retryPolicy;
 
         private RetryPolicy<IRestResponse> _retryWithTimeoutPolicy;
 
         private Policy<IRestResponse> _resiliencePolicy;
-
-        private IWebServiceClient _webserviceClient;
-
-        public ResiliencePatternRepository()
+        
+        public ResiliencePatternRepository(IResiliencePolicyManager resiliencePolicyManager) : base(resiliencePolicyManager)
         {
-            _circuitBreakerPolicy =
-                Policy.HandleResult<IRestResponse>(r => r.StatusCode == HttpStatusCode.InternalServerError)
-                .CircuitBreaker(_circuitBreaker_NoAttempts, TimeSpan.FromSeconds(_circuitBreaker_SecondsOfTimeoutAfterTriggering), (_response, timespan) => _logger.Warning($"Circuit breaker triggered because of too many ({_circuitBreaker_SecondsOfTimeoutAfterTriggering}) failures. Will open after {timespan}"), () => _logger.Warning("Circuit is closed again."));
-
             _retryPolicy = Policy.HandleResult<IRestResponse>(r => r.StatusCode == HttpStatusCode.InternalServerError).Retry(3,
                 (_response, _attemptNo) => _logger.Warning($"Previous attempt failed, trying again (attempt no #{_attemptNo}"));
 
@@ -67,9 +55,7 @@ namespace Consumer.DataAccess
                   _logger.Warning($"Previous attempt failed, trying again (attempt no #{_attemptNo} in {timeSpan}");
               });
 
-            
-
-            _resiliencePolicy = Policy.Wrap(_retryWithTimeoutPolicy, _circuitBreakerPolicy);
+            _resiliencePolicy = _retryWithTimeoutPolicy;
         }
         
         /// <summary>
