@@ -29,7 +29,12 @@ namespace Consumer.DataAccess
 
         public IRestResponse ExecuteWithRetryPolicy(Func<IRestResponse> func)
         {
-            return _resiliencePolicyManager.ResiliencePolicy.Execute(func);
+            return _resiliencePolicyManager.RetryPolicy.Execute(func);
+        }
+
+        public IRestResponse ExecuteWithRetryAndTimeoutPolicy(Func<IRestResponse> func)
+        {
+            return _resiliencePolicyManager.RetryWithTimeoutPolicy.Execute(func);
         }
 
         public IRestResponse ExecuteWithCircuitBreakerPolicy(Func<IRestResponse> func)
@@ -37,6 +42,10 @@ namespace Consumer.DataAccess
             return _resiliencePolicyManager.CircuitBreakerPolicy.Execute(func);
         }
 
+        public IRestResponse ExecuteWithResiliencePolicy(Func<IRestResponse> func)
+        {
+            return _resiliencePolicyManager.ResiliencePolicy.Execute(func);
+        }
 
     }
 }

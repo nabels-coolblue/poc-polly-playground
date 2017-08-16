@@ -32,30 +32,8 @@ namespace Consumer.DataAccess
 
         const string _endpointWithTransientFaultsRoute = "api/faults/transient";
 
-        private RetryPolicy<IRestResponse> _retryPolicy;
-
-        private RetryPolicy<IRestResponse> _retryWithTimeoutPolicy;
-
-        private Policy<IRestResponse> _resiliencePolicy;
-        
         public ResiliencePatternRepository(IResiliencePolicyManager resiliencePolicyManager) : base(resiliencePolicyManager)
         {
-            _retryPolicy = Policy.HandleResult<IRestResponse>(r => r.StatusCode == HttpStatusCode.InternalServerError).Retry(3,
-                (_response, _attemptNo) => _logger.Warning($"Previous attempt failed, trying again (attempt no #{_attemptNo}"));
-
-            _retryWithTimeoutPolicy = Policy
-              .HandleResult<IRestResponse>(r => r.StatusCode == HttpStatusCode.InternalServerError)
-              .WaitAndRetry(new[]
-              {
-                            TimeSpan.FromSeconds(1),
-                            TimeSpan.FromSeconds(2),
-                            TimeSpan.FromSeconds(3)
-              }, (exception, timeSpan, _attemptNo, context) =>
-              {
-                  _logger.Warning($"Previous attempt failed, trying again (attempt no #{_attemptNo} in {timeSpan}");
-              });
-
-            _resiliencePolicy = _retryWithTimeoutPolicy;
         }
         
         /// <summary>
@@ -90,7 +68,7 @@ namespace Consumer.DataAccess
                 .SetResource(_endpointWithTransientFaultsRoute)
                 .SetMethod(Method.GET);
             
-            IRestResponse response = _retryWithTimeoutPolicy.Execute(() => request.Execute());
+            IRestResponse response = ExecuteWithRetryAndTimeoutPolicy(() => request.Execute());
 
             _logger.Information(response.StatusDescription);
 
@@ -112,7 +90,7 @@ namespace Consumer.DataAccess
             
             try
             {
-                IRestResponse response = _circuitBreakerPolicy.Execute(() => request.Execute());
+                IRestResponse response = ExecuteWithCircuitBreakerPolicy(() => request.Execute());
                 _logger.Information(response.StatusDescription);
             }
             catch (BrokenCircuitException ex)
@@ -135,7 +113,7 @@ namespace Consumer.DataAccess
 
             try
             {
-                IRestResponse response = _resiliencePolicy.Execute(() => request.Execute());
+                IRestResponse response = ExecuteWithResiliencePolicy(() => request.Execute());
                 _logger.Information(response.StatusDescription);
             }
             catch (BrokenCircuitException ex)
