@@ -8,15 +8,11 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 
 namespace Consumer.DataAccess
 {
-    public interface IWebServiceClient
-    {
-        IRestResponse ExecuteWithRetryPolicy(Func<IRestResponse> execute);
-    }
-
-    public class WebserviceClient : IWebServiceClient
+    public class WebserviceClient
     {
         ILogger _logger => Log.Logger;
         
@@ -27,25 +23,32 @@ namespace Consumer.DataAccess
             _resiliencePolicyManager = resiliencePolicyManager;
         }
 
-        public IRestResponse ExecuteWithRetryPolicy(Func<IRestResponse> func)
+        public T ExecuteWithRetryPolicy<T>(Func<IRestResponse> func)
         {
-            return _resiliencePolicyManager.RetryPolicy.Execute(func);
+            var response = _resiliencePolicyManager.RetryPolicy.Execute(func);
+            var data = JsonConvert.DeserializeObject<T>(response.Content);
+            return data;
         }
 
-        public IRestResponse ExecuteWithRetryAndTimeoutPolicy(Func<IRestResponse> func)
+        public T ExecuteWithRetryAndTimeoutPolicy<T>(Func<IRestResponse> func)
         {
-            return _resiliencePolicyManager.RetryWithTimeoutPolicy.Execute(func);
+            var response = _resiliencePolicyManager.RetryWithTimeoutPolicy.Execute(func);
+            var data = JsonConvert.DeserializeObject<T>(response.Content);
+            return data;
         }
 
-        public IRestResponse ExecuteWithCircuitBreakerPolicy(Func<IRestResponse> func)
+        public T ExecuteWithCircuitBreakerPolicy<T>(Func<IRestResponse> func)
         {
-            return _resiliencePolicyManager.CircuitBreakerPolicy.Execute(func);
+            var response = _resiliencePolicyManager.CircuitBreakerPolicy.Execute(func);
+            var data = JsonConvert.DeserializeObject<T>(response.Content);
+            return data;
         }
 
-        public IRestResponse ExecuteWithResiliencePolicy(Func<IRestResponse> func)
+        public T ExecuteWithResiliencePolicy<T>(Func<IRestResponse> func)
         {
-            return _resiliencePolicyManager.ResiliencePolicy.Execute(func);
+            var response = _resiliencePolicyManager.ResiliencePolicy.Execute(func);
+            var data = JsonConvert.DeserializeObject<T>(response.Content);
+            return data;
         }
-
     }
 }

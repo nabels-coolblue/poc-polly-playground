@@ -51,11 +51,11 @@ namespace Consumer.DataAccess
         private Policy<IRestResponse> CreateCircuitBreakerPolicy()
         {
             Action<DelegateResult<IRestResponse>, TimeSpan> OnBreak = (_response, _timespan) =>
-            _logger.Warning($"Circuit breaker tripped. Will open after {_timespan}.");
+            _logger.Warning($"Circuit breaker triggered because of too many failures. Will open after {_timespan}");
 
-            Action OnReset = () => _logger.Warning("Circuit breaker has been reset.");
+            Action OnReset = () => _logger.Warning("Circuit is closed again.");
 
-            Action OnHalfOpen = () => _logger.Warning("Circuit is half open.");
+            Action OnHalfOpen = () => _logger.Warning("Circuit is now half open.");
 
             var circuitBreakerPolicy = Policy.HandleResult<IRestResponse>(r => r.StatusCode == HttpStatusCode.InternalServerError)
                 .CircuitBreaker(

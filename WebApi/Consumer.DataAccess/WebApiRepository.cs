@@ -48,11 +48,9 @@ namespace Consumer.DataAccess
                 .SetResource(_endpointWithTransientFaultsRoute)
                 .SetMethod(Method.GET);
             
-            IRestResponse response = ExecuteWithRetryPolicy(() => request.Execute());
+            string response = ExecuteWithRetryPolicy<string>(() => request.Execute());
             
-            _logger.Information(response.StatusDescription);
-
-            return response.ToString();
+            return response;
         }
 
         /// <summary>
@@ -68,11 +66,9 @@ namespace Consumer.DataAccess
                 .SetResource(_endpointWithTransientFaultsRoute)
                 .SetMethod(Method.GET);
             
-            IRestResponse response = ExecuteWithRetryAndTimeoutPolicy(() => request.Execute());
+            string response = ExecuteWithRetryAndTimeoutPolicy<string>(() => request.Execute());
 
-            _logger.Information(response.StatusDescription);
-
-            return response.ToString();
+            return response;
         }
 
         /// <summary>
@@ -90,8 +86,9 @@ namespace Consumer.DataAccess
             
             try
             {
-                IRestResponse response = ExecuteWithCircuitBreakerPolicy(() => request.Execute());
-                _logger.Information(response.StatusDescription);
+                string response = ExecuteWithCircuitBreakerPolicy<string>(() => request.Execute());
+                _logger.Information(response);
+                return response;
             }
             catch (BrokenCircuitException ex)
             {
@@ -113,15 +110,14 @@ namespace Consumer.DataAccess
 
             try
             {
-                IRestResponse response = ExecuteWithResiliencePolicy(() => request.Execute());
-                _logger.Information(response.StatusDescription);
+                var response = ExecuteWithResiliencePolicy<string>(() => request.Execute());
+                return response;
             }
             catch (BrokenCircuitException ex)
             {
                 _logger.Information("OUT OF ORDER: Circuit breaker is currently tripped. Sorry.");
+                return "Service unavailable";
             }
-
-            return "Service unavailable";
         }
     }
 }
