@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.26430.12
+VisualStudioVersion = 15.0.26730.3
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WebApi", "WebApi\WebApi.csproj", "{A0876CC3-0282-497E-AA75-AE9E7D58B26F}"
 EndProject
@@ -10,6 +10,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Consumer.DataAccess", "Consumer.DataAccess\Consumer.DataAccess.csproj", "{5671DFC7-1529-4085-90D3-8276AA23D005}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Coolblue.Utilities.RestSharp", "Coolblue.Utilities.RestSharp\Coolblue.Utilities.RestSharp.csproj", "{4DE1A4EB-7F0A-4CB9-80A0-121EACECB0B2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Consumer.DataAccess.Test", "Consumer.DataAccess.Test\Consumer.DataAccess.Test.csproj", "{C3DA6490-255C-4A56-A831-2012DB347FA2}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -33,8 +35,15 @@ Global
 		{4DE1A4EB-7F0A-4CB9-80A0-121EACECB0B2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4DE1A4EB-7F0A-4CB9-80A0-121EACECB0B2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4DE1A4EB-7F0A-4CB9-80A0-121EACECB0B2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C3DA6490-255C-4A56-A831-2012DB347FA2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C3DA6490-255C-4A56-A831-2012DB347FA2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C3DA6490-255C-4A56-A831-2012DB347FA2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C3DA6490-255C-4A56-A831-2012DB347FA2}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {F3EEDDC8-ED21-4B7B-8B18-C54B5EC1ED2D}
 	EndGlobalSection
 EndGlobal
