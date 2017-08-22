@@ -7,6 +7,7 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading.Tasks;
+using System.Web;
 
 namespace Consumer.DataAccess
 {
@@ -33,11 +34,13 @@ namespace Consumer.DataAccess
         
         public Policy<IRestResponse> RetryPolicy { get; set; }
 
+        public IList<HttpStatusCode> StatusCodesWorthRetrying { get; set; }
+
         private IResilienceSettings _resilienceSettings { get; set; }
 
-        public ResiliencePolicyManager(IResilienceSettings ResilienceSettings)
+        public ResiliencePolicyManager(IResilienceSettings resilienceSettings)
         {
-            _resilienceSettings = ResilienceSettings;
+            _resilienceSettings = resilienceSettings;
 
             RetryPolicy = CreateRetryPolicy();
 
@@ -46,7 +49,23 @@ namespace Consumer.DataAccess
             CircuitBreakerPolicy = CreateCircuitBreakerPolicy();
                 
             ResiliencePolicy = Policy.Wrap(RetryWithTimeoutPolicy, CircuitBreakerPolicy);
+
+            StatusCodesWorthRetrying = CreateStatusCodesWorthRetrying();
         }
+
+        private IList<HttpStatusCode> CreateStatusCodesWorthRetrying()
+        {
+            HttpStatusCode[] httpStatusCodesWorthRetrying = {
+               HttpStatusCode.RequestTimeout, 
+               HttpStatusCode.InternalServerError, 
+               HttpStatusCode.BadGateway,
+               HttpStatusCode.ServiceUnavailable, 
+               HttpStatusCode.GatewayTimeout
+            };
+
+            return httpStatusCodesWorthRetrying;
+        }
+
 
         private Policy<IRestResponse> CreateCircuitBreakerPolicy()
         {
@@ -57,10 +76,11 @@ namespace Consumer.DataAccess
 
             Action OnHalfOpen = () => _logger.Warning("Circuit is now half open.");
 
-            var circuitBreakerPolicy = Policy.HandleResult<IRestResponse>(r => r.StatusCode == HttpStatusCode.InternalServerError)
+            var circuitBreakerPolicy = 
+                Policy.HandleResult<IRestResponse>(r => StatusCodesWorthRetrying.Contains(r.StatusCode) || r.ErrorException != null)
                 .CircuitBreaker(
                 handledEventsAllowedBeforeBreaking: _resilienceSettings.BreakerAttemptThreshold,
-                durationOfBreak: TimeSpan.FromSeconds(_resilienceSettings.BreakerTimeoutWhenTrippedS),
+                durationOfBreak: TimeSpan.FromSeconds(_resilienceSettings.CircuitBreakerTrippedTimeoutInSeconds),
                 onBreak: OnBreak,
                 onReset: OnReset,
                 onHalfOpen: OnHalfOpen);
@@ -71,7 +91,7 @@ namespace Consumer.DataAccess
         private Policy<IRestResponse> CreateRetryWithTimeoutPolicy()
         {
             var retryWithTimeoutPolicy = 
-              Policy.HandleResult<IRestResponse>(r => r.StatusCode == HttpStatusCode.InternalServerError)
+              Policy.HandleResult<IRestResponse>(r => StatusCodesWorthRetrying.Contains(r.StatusCode)  || r.ErrorException != null)
                           .WaitAndRetry(new[]
                           {
                                         TimeSpan.FromSeconds(1),
@@ -103,7 +123,7 @@ namespace Consumer.DataAccess
 
         int BreakerAttemptThreshold { get; set; }
 
-        int BreakerTimeoutWhenTrippedS { get; set; }
+        int CircuitBreakerTrippedTimeoutInSeconds { get; set; }
     }
 
     public class ResilienceSettings : IResilienceSettings
@@ -112,6 +132,6 @@ namespace Consumer.DataAccess
 
         public int BreakerAttemptThreshold { get; set; }
 
-        public int BreakerTimeoutWhenTrippedS { get; set; }
+        public int CircuitBreakerTrippedTimeoutInSeconds { get; set; }
     }
 }

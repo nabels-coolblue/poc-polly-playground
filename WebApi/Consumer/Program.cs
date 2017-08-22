@@ -28,7 +28,7 @@ namespace Consumer
             {
                 AmountOfRetries = 3,
                 BreakerAttemptThreshold = 2,
-                BreakerTimeoutWhenTrippedS = 1,
+                CircuitBreakerTrippedTimeoutInSeconds = 1,
             };
             container.RegisterSingleton<IResilienceSettings>(resilienceSettings);
 
